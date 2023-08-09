@@ -42,7 +42,8 @@ impl From<Vec<Movie>> for RecoQuery {
 }
 
 
-pub fn get_recos_and_random_users() -> (BTreeMap<Movie, HashSet<usize>>, BTreeMap<usize, HashSet<Movie>>,Vec<UserRatings>) {
+pub fn get_recos_and_random_users() -> (BTreeMap<Movie, HashSet<usize>>, BTreeMap<usize, HashSet<Movie>>,Vec<UserRatings>, [usize; 10]) {
+    let mut ratings_count = [0; 10];
     // Read the lines
     let file = read_to_string("ratings.csv").expect("Failed to open file: ratings_small.csv seems doesn't exist");
     let mut reviews = BTreeMap::new();
@@ -60,8 +61,8 @@ pub fn get_recos_and_random_users() -> (BTreeMap<Movie, HashSet<usize>>, BTreeMa
         let user_id = line.next().unwrap().parse::<usize>().unwrap();
         let movie_id = line.next().unwrap().parse::<usize>().unwrap();
         let rating = line.next().unwrap().parse::<f32>().unwrap();
-        let rating = (rating.round()*2.0) as u8;
-        
+        let rating = (rating*2.0).round() as u8;
+        ratings_count[rating as usize - 1] += 1;
         let movie = Movie::new(movie_id, rating);
         // Add the movie to the user's list of movies if is selected
         if let Some(view_movies) = users_picked.get_mut(&user_id) {
@@ -69,12 +70,13 @@ pub fn get_recos_and_random_users() -> (BTreeMap<Movie, HashSet<usize>>, BTreeMa
         } else {
             let user_ratings = reviews.entry(movie.clone()).or_insert(HashSet::new());
             user_ratings.insert(user_id);
+            let user_ratings = users.entry(user_id).or_insert(HashSet::new());
+            user_ratings.insert(movie);
+    
         }
-        let user_ratings = users.entry(user_id).or_insert(HashSet::new());
-        user_ratings.insert(movie);
 
     }
 
-    (reviews, users, users_picked.into_iter().map(|(user_id, ratings)| UserRatings { user_id, ratings }).collect())
+    (reviews, users, users_picked.into_iter().map(|(user_id, ratings)| UserRatings { user_id, ratings }).collect(), ratings_count)
 
 }
