@@ -1,5 +1,29 @@
 use crate::prelude::*;
 
+
+fn get_cosine(vec1: Vec<f32>, vec2: Vec<f32>) -> f32 {
+    assert!(vec1.len() == vec2.len());
+    let s1 = vec1.iter().sum::<f32>();
+    let s2 = vec2.iter().sum::<f32>();
+
+    let mut dot_product = 0.0;
+    let mut vec1_norm = 0.0;
+    let mut vec2_norm = 0.0;
+    for (v1, v2) in vec1.iter().zip(vec2.iter()) {
+        let v1 = v1 - s1 / vec1.len() as f32;
+        let v2 = v2 - s2 / vec2.len() as f32;
+        dot_product += v1 * v2;
+        vec1_norm += v1.powi(2);
+        vec2_norm += v2.powi(2);
+    }
+    dot_product / (vec1_norm.sqrt() * vec2_norm.sqrt())
+}
+
+pub fn get_similarity(vec1: Vec<Movie>, vec2: Vec<Movie>) -> () {
+    
+}
+
+
 pub async fn get_recommendations(recos: &BTreeMap<Movie, HashSet<usize>>, users: &BTreeMap<usize, HashSet<Movie>>, query: &RecoQuery) -> Vec<Movie> {
     // Get all similar users
     let mut similar_users: HashMap<usize, Vec<Movie>> = HashMap::new();
