@@ -1,4 +1,5 @@
 use crate::prelude::*;
+use nalgebra_sparse::{coo::CooMatrix, CsrMatrix, csr::CsrRow};
 
 fn get_cosine(vec1: Vec<f32>, vec2: Vec<f32>, vec1_mean: f32, vec2_mean: f32) -> f32 {
     assert!(vec1.len() == vec2.len());
@@ -17,6 +18,35 @@ fn get_cosine(vec1: Vec<f32>, vec2: Vec<f32>, vec1_mean: f32, vec2_mean: f32) ->
         vec1_norm += v1.powi(2);
         vec2_norm += v2.powi(2);
     }
+    dot_product / (vec1_norm.sqrt() * vec2_norm.sqrt())
+}
+
+fn get_cosine_raw(raw1: CsrRow<f32>, raw2: CsrRow<f32>) -> f32 {
+    let mut dot_product = 0.0;
+    let mut vec1_norm = 0.0;
+    let mut vec2_norm = 0.0;
+    
+    for col in raw1.col_indices().iter().chain(raw2.col_indices().iter()).collect::<HashSet<_>>() {
+        let v1 = raw1.get_entry(*col);
+        let v2 = raw2.get_entry(*col);
+        
+        let v1 = if let Some(v1) = v1 {
+            v1.into_value().powi(2)
+        } else {
+            0.0
+        };
+
+        let v2 = if let Some(v2) = v2 {
+            v2.into_value().powi(2)
+        } else {
+            0.0
+        };
+        
+        dot_product += v1 * v2;
+        vec1_norm += v1.powi(2);
+        vec2_norm += v2.powi(2);
+    }
+
     dot_product / (vec1_norm.sqrt() * vec2_norm.sqrt())
 }
 
@@ -56,6 +86,59 @@ pub fn get_similarity(set1: HashMap<MID, u8>, set2: HashMap<MID, u8>) -> f32 {
     )
 }
 
+pub fn compute_matrix(similar_users: Vec<(UID, HashMap<MID, u8>)>, me: HashMap<MID, u8>) -> CooMatrix<f32> {
+    let unique_movies: HashSet<MID> = HashSet::from_iter(
+        similar_users
+            .iter()
+            .flat_map(|(_, movies)| movies.keys().cloned()),
+    );
+
+    let mut matrix = CooMatrix::new(similar_users.len() + 1, unique_movies.len());
+
+    // Add the users
+    for (i, (user, movies)) in similar_users.iter().enumerate() {
+        for (j, movie) in unique_movies.iter().enumerate() {
+            if let Some(rating) = movies.get(movie) {
+                matrix.push(i, j, *rating as f32);
+            }
+        }
+    }
+
+    // Add me
+    for (j, movie) in unique_movies.iter().enumerate() {
+        if let Some(rating) = me.get(movie) {
+            matrix.push(similar_users.len(), j, *rating as f32);
+        }
+    }
+    matrix
+}
+
+pub fn computer_similarities(matrix: CsrMatrix<f32>) -> Vec<f32> {
+    let mut similarities = Vec::with_capacity(matrix.nrows());
+    let user = matrix.row(matrix.nrows() - 1);
+    for row in matrix.row_iter() {
+        similarities.push(get_cosine_raw(
+            user.clone(),
+            row,
+        ));
+    }
+    similarities
+}
+
+pub fn normalize_matrix(matrix: &mut CsrMatrix<f32>) {
+    for mut raw in matrix.row_iter_mut() {
+        // Mean centering
+        let values = raw.values();
+        let mean = values.iter().sum::<f32>() / values.len() as f32;
+        for value in raw.values_mut() {
+            if value != &0.0 {
+                *value -= mean;
+            }
+        }
+    }
+}
+
+
 pub async fn get_recommendations(
     recos: &BTreeMap<MID, HashMap<UID, u8>>,
     users: &BTreeMap<UID, HashMap<MID, u8>>,
@@ -75,30 +158,31 @@ pub async fn get_recommendations(
             }
         }
     }
-    // Get the most similar user to the query user
-    let mut most_similar_user = 0;
-    let mut max_similar_user = 0.0;
-    for (user, movies) in similar_users {
-        let similarity = get_similarity(query.ratings.clone(), movies);
-        if similarity > max_similar_user && user != query.user_id {
-            max_similar_user = similarity;
-            most_similar_user = user;
+    // Get the most top k similar users to the query user
+    let k = 100;
+    let mut top_users: Vec<(UID, HashMap<MID, u8>)> = Vec::with_capacity(k);
+    for user in similar_users {
+        let similarity = get_similarity(user.1.clone(), query.ratings.clone());
+        if top_users.len() < k {
+            top_users.push((user.0, user.1));
+        } else {
+            let mut min = 0;
+            for i in 0..top_users.len() {
+                if get_similarity(top_users[i].1.clone(), query.ratings.clone()) < similarity {
+                    min = i;
+                }
+            }
+            top_users[min] = (user.0, user.1);
         }
     }
-    println!("most_similar_user: {} {}", most_similar_user, max_similar_user);
-    let view_movies_most_similar_user = users
-        .get(&most_similar_user);
-    
-    if view_movies_most_similar_user.is_none() {
-        return Vec::new();
-    }
-    let view_movies_most_similar_user = view_movies_most_similar_user.unwrap();   
-    // Get the movie with the highest rating from the most similar user that the query user hasn't seen
-    let mut top_movies = Vec::new();
-    for movie in view_movies_most_similar_user {
-        if movie.1 > &9 && !query.ratings.contains_key(movie.0) {
-            top_movies.push((*movie.0, *movie.1));
-        }
-    }
-    top_movies
+    println!("{:?}", top_users);
+    let now = std::time::Instant::now();
+    let matrix = compute_matrix(top_users, query.ratings.clone());
+    let mut matrix = CsrMatrix::from(&matrix);
+    normalize_matrix(&mut matrix);
+    let similarities = computer_similarities(matrix.clone());
+
+    println!("Time to compute similarities: {:?}", now.elapsed());
+
+    Vec::new()
 }
