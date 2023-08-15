@@ -1,6 +1,6 @@
 pub mod movies;
-pub mod recommendation;
 pub mod prelude;
+pub mod recommendation;
 
 use crate::prelude::*;
 
@@ -13,16 +13,23 @@ async fn main() {
     println!("len picked_users: {}", picked_users.len());
     for user in &picked_users {
         // Query contains 90% of the user's ratings
-        let query = RecoQuery::from(user.ratings.iter().take((user.ratings.len() as f32 * 0.01) as usize).cloned().collect::<Vec<Movie>>());
+        let query = RecoQuery::from(
+            user.ratings
+                .iter()
+                .take((user.ratings.len() as f32 * 0.8) as usize)
+                .cloned()
+                .collect::<Vec<Movie>>(),
+        );
         let recos = get_recommendations(&recos, &users, &query).await;
-        for movie in &recos {
-            if let Some(viewed) = user.ratings.get(movie) {
-                println!("Recommendation: {} is in user: {:?}", movie.id, user.user_id);
-                //Compare to the recommendation
-                println!("Rating: {} expected: {}", viewed.rating, movie.rating);
-            } 
+        for (movie, rating) in &recos {
+            for viewed_movie in &user.ratings {
+                if *movie == viewed_movie.id {
+                    println!(
+                        "movie expet rating: {}, rated: {:?}",
+                        rating, viewed_movie.rating
+                    );
+                }
+            }
         }
-        
     }
-
 }

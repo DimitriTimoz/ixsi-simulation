@@ -1,3 +1,6 @@
-pub use std::{fs::read_to_string, collections::{HashMap, HashSet, BTreeMap}};
 pub use crate::movies::*;
 pub use crate::recommendation::*;
+pub use std::{
+    collections::{BTreeMap, HashMap, HashSet},
+    fs::read_to_string,
+};
