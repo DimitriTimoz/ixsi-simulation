@@ -1,5 +1,7 @@
+use std::ops::Mul;
+
 use crate::prelude::*;
-use nalgebra_sparse::{coo::CooMatrix, CsrMatrix, csr::CsrRow};
+use nalgebra_sparse::{coo::CooMatrix, CsrMatrix, csr::CsrRow, CscMatrix};
 
 fn get_cosine(vec1: Vec<f32>, vec2: Vec<f32>, vec1_mean: f32, vec2_mean: f32) -> f32 {
     assert!(vec1.len() == vec2.len());
@@ -138,6 +140,18 @@ pub fn normalize_matrix(matrix: &mut CsrMatrix<f32>) {
     }
 }
 
+pub fn compute_reco(matrix: CsrMatrix<f32>, simarities: CsrMatrix<f32>) -> CsrMatrix<f32> {
+    /// Simularities mult Matrix
+    let sum_similarities: Vec<f32> = CscMatrix::from(&simarities).col_iter().map(|col| col.values().iter().sum::<f32>()).collect();
+    let mut output = simarities.mul(matrix);
+    for mut raw in output.row_iter_mut() {
+        for (i, value) in raw.values_mut().iter_mut().enumerate() {
+            *value /= sum_similarities[i];
+        }
+    }
+    output
+}
+
 
 pub async fn get_recommendations(
     recos: &BTreeMap<MID, HashMap<UID, u8>>,
@@ -175,14 +189,33 @@ pub async fn get_recommendations(
             top_users[min] = (user.0, user.1);
         }
     }
-    println!("{:?}", top_users);
+
     let now = std::time::Instant::now();
     let matrix = compute_matrix(top_users, query.ratings.clone());
     let mut matrix = CsrMatrix::from(&matrix);
     normalize_matrix(&mut matrix);
     let similarities = computer_similarities(matrix.clone());
-
+    // To matrix
+    let mut similarities_matrix = CooMatrix::new(1, similarities.len());
+    for (i, similarity) in similarities.iter().enumerate() {
+        similarities_matrix.push(0, i, *similarity);
+    }
+    println!("Recos {:?}", compute_reco(matrix, CsrMatrix::from(&similarities_matrix)));
     println!("Time to compute similarities: {:?}", now.elapsed());
 
     Vec::new()
+}
+
+
+#[cfg(test)]
+mod tests {
+    use nalgebra_sparse::{CsrMatrix, CooMatrix};
+
+    use crate::prelude::compute_reco;
+
+
+    #[test]
+    fn test_matrix_similarities() {
+
+    }
 }
