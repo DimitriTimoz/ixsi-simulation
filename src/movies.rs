@@ -1,5 +1,8 @@
+use std::hash::Hash;
+
 use crate::prelude::*;
-use rand::{self, Rng};
+use nalgebra_sparse::CooMatrix;
+use rand;
 
 #[derive(Default, Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct Movie {
@@ -59,58 +62,45 @@ impl RecoQuery {
     }
 }
 
-pub fn get_recos_and_random_users() -> (
-    BTreeMap<MID, HashMap<UID, u8>>,
-    BTreeMap<UID, HashMap<MID, u8>>,
-    Vec<UserRatings>,
+pub fn get_matrix_and_ratings() -> (
+    CooMatrix<f32>,
+    HashMap<UID, HashMap<MID, u8>>,
     [usize; 10],
 ) {
     let mut ratings_count = [0; 10];
     // Read the lines
     let file = read_to_string("ratings.csv")
         .expect("Failed to open file: ratings_small.csv seems doesn't exist");
-    let mut reviews = BTreeMap::new();
+    let mut matrix =  CooMatrix::new(270_896, 45_115);
+    let mut user_ratings = HashMap::new();
 
     let n_users = 300;
-    let mut rng = rand::thread_rng();
-    // Ids of users_picked to be selected pick 100 random users
-    let users_picked = (0..n_users)
-        .map(|_| rng.gen_range(0..200_000))
-        .collect::<HashSet<usize>>();
-    let mut users_picked: HashMap<UID, HashSet<Movie>> = HashMap::from_iter(
-        users_picked
-            .into_iter()
-            .map(|user_id| (user_id, HashSet::new())),
-    );
-
-    let mut users = BTreeMap::new();
 
     for line in file.lines().skip(1) {
         let mut line = line.split(',');
-        let user_id = line.next().unwrap().parse::<usize>().unwrap();
-        let movie_id = line.next().unwrap().parse::<usize>().unwrap();
+        let user_id = line.next().unwrap().parse::<UID>().unwrap() - 1;
+        let movie_id = line.next().unwrap().parse::<MID>().unwrap() - 1;
         let rating = line.next().unwrap().parse::<f32>().unwrap();
         let rating = (rating * 2.0).round() as u8;
         ratings_count[rating as usize - 1] += 1;
         let movie = Movie::new(movie_id, rating);
         // Add the movie to the user's list of movies if is selected
-        if let Some(view_movies) = users_picked.get_mut(&user_id) {
-            view_movies.insert(movie.clone());
-        } else {
-            let user_ratings = reviews.entry(movie.id).or_insert(HashMap::new());
-            user_ratings.insert(user_id, movie.rating);
-            let user_ratings = users.entry(user_id).or_insert(HashMap::new());
-            user_ratings.insert(movie.id, movie.rating);
+        if user_id > n_users {
+            continue;
         }
+
+        matrix.push(user_id, movie_id, rating as f32 / 5.0);
+
+        // Add the movie to the user's list of movies if is selected
+        user_ratings
+            .entry(user_id)
+            .or_insert_with(HashMap::new)
+            .insert(movie_id, rating);
     }
 
     (
-        reviews,
-        users,
-        users_picked
-            .into_iter()
-            .map(|(user_id, ratings)| UserRatings { user_id, ratings })
-            .collect(),
+        matrix,
+        user_ratings,
         ratings_count,
     )
 }
