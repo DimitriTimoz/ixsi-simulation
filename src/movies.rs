@@ -2,7 +2,6 @@ use std::hash::Hash;
 
 use crate::prelude::*;
 use nalgebra_sparse::CooMatrix;
-use rand;
 
 #[derive(Default, Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct Movie {
@@ -71,10 +70,9 @@ pub fn get_matrix_and_ratings() -> (
     // Read the lines
     let file = read_to_string("ratings.csv")
         .expect("Failed to open file: ratings_small.csv seems doesn't exist");
-    let mut matrix =  CooMatrix::new(270_896, 45_115);
+    let mut matrix =  CooMatrix::new(100_000, 176_275);
     let mut user_ratings = HashMap::new();
 
-    let n_users = 300;
 
     for line in file.lines().skip(1) {
         let mut line = line.split(',');
@@ -83,14 +81,12 @@ pub fn get_matrix_and_ratings() -> (
         let rating = line.next().unwrap().parse::<f32>().unwrap();
         let rating = (rating * 2.0).round() as u8;
         ratings_count[rating as usize - 1] += 1;
-        let movie = Movie::new(movie_id, rating);
+    
         // Add the movie to the user's list of movies if is selected
-        if user_id > n_users {
-            continue;
-        }
-
         matrix.push(user_id, movie_id, rating as f32 / 5.0);
-
+        if user_id >= 100_000 - 1 {
+            break;
+        }
         // Add the movie to the user's list of movies if is selected
         user_ratings
             .entry(user_id)
