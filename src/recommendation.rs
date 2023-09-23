@@ -140,12 +140,10 @@ pub async fn get_recommendations(
     // Get the movies that the user has not seen yet and sort them by the predicted rating
     println!("getting the movies that the user has not seen yet and sort them by the predicted rating");
     let mut movies = Vec::new();
-    for (i, value) in estimation.col_iter().enumerate() {
-        if let Some(v) = value.get_entry(0)  {
-            let v = v.into_value();
-            if v > 0.0 {
-                movies.push((i, v));
-            }
+    for c in 0..estimation.ncols() {
+        let value = estimation.get_entry(0, c).unwrap().into_value();
+        if value > 0.0 {
+            movies.push((c, value));
         }
     }
     movies.sort_by(|(_, v1), (_, v2)| v2.partial_cmp(v1).unwrap());
