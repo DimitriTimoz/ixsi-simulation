@@ -83,7 +83,7 @@ pub fn get_matrix_and_ratings() -> (
         ratings_count[rating as usize - 1] += 1;
     
         // Add the movie to the user's list of movies if is selected
-        matrix.push(user_id, movie_id, rating as f32 / 5.0);
+        matrix.push(user_id, movie_id, rating as f32 / 10.0);
         if user_id >= 100_000 - 1 {
             break;
         }
