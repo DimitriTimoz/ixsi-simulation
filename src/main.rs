@@ -13,7 +13,7 @@ async fn main() {
     let mut matrix = CsrMatrix::from(&matrix);
     
     println!("normalizing matrix");
-    normalize_matrix(&mut matrix);
+    //normalize_matrix(&mut matrix);
 
     println!("computing norms");
     let norms = compute_norms(&matrix);

@@ -142,9 +142,10 @@ pub async fn get_recommendations(
     let mut movies = Vec::new();
     for c in 0..estimation.ncols() {
         let value = estimation.get_entry(0, c).unwrap().into_value();
-        if value > 0.0 {
-            movies.push((c, value));
+        if value == 0.0 {
+            continue;
         }
+        movies.push((c, value));
     }
     movies.sort_by(|(_, v1), (_, v2)| v2.partial_cmp(v1).unwrap());
     println!("{:?}", movies);
