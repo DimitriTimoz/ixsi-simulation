@@ -7,8 +7,7 @@ use recommendation::{normalize_matrix, compute_norms};
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() {
-    let (matrix, users, counts) = movies::get_matrix_and_ratings();
-    println!("counts: {:?}", counts);
+    let (matrix, users) = movies::get_matrix_and_ratings();
     println!("len users: {}", users.len());
     let mut matrix = CsrMatrix::from(&matrix);
     
@@ -20,7 +19,6 @@ async fn main() {
     
 
     for (i, user) in users.iter().enumerate() {
-        println!("i: {}", i);
         let reco = recommendation::get_recommendations(&matrix, &norms, i).await;
     }
     

@@ -63,8 +63,7 @@ impl RecoQuery {
 
 pub fn get_matrix_and_ratings() -> (
     CooMatrix<f32>,
-    HashMap<UID, HashMap<MID, u8>>,
-    [usize; 10],
+    HashMap<UID, HashMap<MID, f32>>,
 ) {
     let mut ratings_count = [0; 10];
     // Read the lines
@@ -79,11 +78,10 @@ pub fn get_matrix_and_ratings() -> (
         let user_id = line.next().unwrap().parse::<UID>().unwrap() - 1;
         let movie_id = line.next().unwrap().parse::<MID>().unwrap() - 1;
         let rating = line.next().unwrap().parse::<f32>().unwrap();
-        let rating = (rating * 2.0).round() as u8;
-        ratings_count[rating as usize - 1] += 1;
+        let rating = rating;
     
         // Add the movie to the user's list of movies if is selected
-        matrix.push(user_id, movie_id, rating as f32 / 10.0);
+        matrix.push(user_id, movie_id, rating / 5.0);
         if user_id >= 100_000 - 1 {
             break;
         }
@@ -97,6 +95,5 @@ pub fn get_matrix_and_ratings() -> (
     (
         matrix,
         user_ratings,
-        ratings_count,
     )
 }

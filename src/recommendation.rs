@@ -126,10 +126,13 @@ pub async fn get_recommendations(
     // Compute the sum of the similarities with the following part of the fomula: sum(similarities_users * similar_users_rates)
     let mut estimation = similarities_users.clone().mul(&(similar_users_rates.clone())); // Of the shape (1, n_movies)
     for (i, mut col) in estimation.col_iter_mut().enumerate() {
-        // Get the column i of the similar_users_rates matrix and do the sum
+        // Do the sum of the similarities with the users that have seen the movie
         let mut s = 0.0;
-        for v in similar_users_rates.get_col(i).unwrap().values().iter() {
-            s += v.abs();
+        // Get the users that have seen the movie of the column
+        for (j, v) in similar_users_rates.get_col(i).unwrap().values().iter().enumerate() {
+            if v != &0.0 {
+                s += similarities_users.get_entry(0, j).unwrap().into_value().abs();
+            }
         }
 
         for value in col.values_mut() {
@@ -141,7 +144,7 @@ pub async fn get_recommendations(
     println!("getting the movies that the user has not seen yet and sort them by the predicted rating");
     let mut movies = Vec::new();
     for c in 0..estimation.ncols() {
-        let value = estimation.get_entry(0, c).unwrap().into_value();
+        let value = estimation.get_entry(0, c).unwrap().into_value()*5.0;
         if value == 0.0 {
             continue;
         }
