@@ -4,43 +4,43 @@ use crate::prelude::*;
 use nalgebra_sparse::{coo::CooMatrix, CsrMatrix, CscMatrix};
 
 
-pub fn compute_matrix(similar_users_rates: Vec<(UID, HashMap<MID, u8>)>, me: HashMap<MID, u8>, n_movies: usize) -> CooMatrix<f32> {
-    let unique_movies: HashSet<MID> = HashSet::from_iter(
-        similar_users_rates
-            .iter()
-            .flat_map(|(_, movies)| movies.keys().cloned()),
-    );
+// pub fn compute_matrix(similar_users_rates: Vec<(UID, HashMap<MID, f32>)>, me: HashMap<MID, f32>, n_movies: usize) -> CooMatrix<f32> {
+//     let unique_movies: HashSet<MID> = HashSet::from_iter(
+//         similar_users_rates
+//             .iter()
+//             .flat_map(|(_, movies)| movies.keys().cloned()),
+//     );
 
-    let mut matrix = CooMatrix::new(similar_users_rates.len() + 1, unique_movies.len());
+//     let mut matrix = CooMatrix::new(similar_users_rates.len() + 1, unique_movies.len());
 
-    // Add the users
-    for (i, (user, movies)) in similar_users_rates.iter().enumerate() {
-        for (j, movie) in unique_movies.iter().enumerate() {
-            if let Some(rating) = movies.get(movie) {
-                matrix.push(i, j, *rating as f32);
-            }
-        }
-    }
+//     // Add the users
+//     for (i, (user, movies)) in similar_users_rates.iter().enumerate() {
+//         for (j, movie) in unique_movies.iter().enumerate() {
+//             if let Some(rating) = movies.get(movie) {
+//                 matrix.push(i, j, *rating);
+//             }
+//         }
+//     }
 
-    // Add me
-    for (j, movie) in unique_movies.iter().enumerate() {
-        if let Some(rating) = me.get(movie) {
-            matrix.push(similar_users_rates.len(), j, *rating as f32);
-        }
-    }
-    matrix
-}
+//     // Add me
+//     for (j, movie) in unique_movies.iter().enumerate() {
+//         if let Some(rating) = me.get(movie) {
+//             matrix.push(similar_users_rates.len(), j, *rating);
+//         }
+//     }
+//     matrix
+// }
 
 pub fn normalize_matrix(matrix: &mut CsrMatrix<f32>) {
     for mut raw in matrix.row_iter_mut() {
         // Mean centering
-        let values = raw.values();
+        /*let values = raw.values();
         let mean = values.iter().sum::<f32>() / values.len() as f32;
         for value in raw.values_mut() {
             if value != &0.0 {
                 *value -= mean;
             }
-        }
+        }*/
     }
 }
 
@@ -58,11 +58,15 @@ pub async fn get_recommendations(
 ) -> Vec<(MID, f32)> {
     // Take a row from the matrix and convert it to a Matrix
     println!("computing the row");
-    let row = matrix.row(to_predict);
-    let mut user_matrix: CooMatrix<f32> = CooMatrix::new(1, row.ncols());
-    for ind in row.col_indices() {
-        let value = row.get_entry(*ind).unwrap().into_value();
+    let to_predict_row = matrix.row(to_predict);
+    let mut user_matrix: CooMatrix<f32> = CooMatrix::new(1, to_predict_row.ncols());
+    let l = to_predict_row.values().len() / 2;
+    for (i, ind) in to_predict_row.col_indices().iter().enumerate() {
+        let value = to_predict_row.get_entry(*ind).unwrap().into_value();
         user_matrix.push(0, *ind, value);
+        if i >= l  {
+            break;
+        }
     }
 
     let user_matrix = CsrMatrix::from(&user_matrix);
@@ -136,6 +140,9 @@ pub async fn get_recommendations(
         }
 
         for value in col.values_mut() {
+            if s == 0.0 {
+                continue;
+            }
             *value /= s;
         }
     }
@@ -144,7 +151,7 @@ pub async fn get_recommendations(
     println!("getting the movies that the user has not seen yet and sort them by the predicted rating");
     let mut movies = Vec::new();
     for c in 0..estimation.ncols() {
-        let value = estimation.get_entry(0, c).unwrap().into_value()*5.0;
+        let value = estimation.get_entry(0, c).unwrap().into_value();
         if value == 0.0 {
             continue;
         }

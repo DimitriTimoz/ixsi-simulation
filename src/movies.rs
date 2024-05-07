@@ -78,7 +78,6 @@ pub fn get_matrix_and_ratings() -> (
         let user_id = line.next().unwrap().parse::<UID>().unwrap() - 1;
         let movie_id = line.next().unwrap().parse::<MID>().unwrap() - 1;
         let rating = line.next().unwrap().parse::<f32>().unwrap();
-        let rating = rating;
     
         // Add the movie to the user's list of movies if is selected
         matrix.push(user_id, movie_id, rating / 5.0);
