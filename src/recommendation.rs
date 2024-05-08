@@ -83,7 +83,7 @@ pub async fn get_recommendations(
     // Divide by the norms and get the top k 
     println!("dividing by the norms");
     // Get the top k of similar users
-    const K: usize = 100;
+    const K: usize = 10000;
     let mut top_k = Vec::new();
 
     for (i, mut row) in sim.row_iter_mut().enumerate() {
@@ -154,7 +154,6 @@ pub async fn get_recommendations(
         }
     }
     movies.sort_by(|(_, v1), (_, v2)| v1.partial_cmp(v2).unwrap());
-    println!("{:?}", movies);
     movies
 }
 
